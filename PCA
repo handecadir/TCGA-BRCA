@@ -1,0 +1,11 @@
+# Burada PCA yapıyoruz bu analiz veri setinin değişkenlerini anlamak için yapılır 
+brca.gene.samples <- data.frame(dataFilt[,dataSmTP], dataFilt[,dataSmNT])
+condition <- c(rep("Primary Tumor", length(dataSmTP)) , rep("Solid Tissue  Normal", length(dataSmNT)))
+
+pca<-prcomp(t(brca.gene.samples))
+
+pca_data_perc <- round(100*pca$sdev^2/sum(pca$sdev^2),1)
+
+pca_data_frame <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], sample=colnames(brca.gene.samples))
+
+ggplot(pca_data_frame, aes(PC1, PC2, color = condition)) + geom_point(size = 2 ) + labs(x = paste0("PC1(", pca_data_perc[1], ")"), y=paste0("PC2(", pca_data_perc[2], ")"))
