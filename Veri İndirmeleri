@@ -1,0 +1,111 @@
+#Analizlerin toplamında kullanılacak paketler eğer elinizde bu paketler yüklü değilse lütfen önce yükleyiniz.
+```{r}
+library(ggplot2)
+library(SummarizedExperiment)
+library(dplyr)
+library(TCGAbiolinks)
+library(DT)
+library(grid)
+library(gridExtra)
+library(tidyr)
+library(pheatmap)
+library(stringr)
+library(edgeR)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(Glimma)
+library(DOSE)
+library(enrichplot)
+library(WGCNA)
+library(cluster)
+library(pathview)
+library(ggstatsplot)
+library(palmerpenguins)
+library(viridis)
+library(hrbrthemes)
+```
+#Çalışmanın bu aşamasında TCGA biolinks paketi üzerinden meme kanseri verileri indirilmiştir. İndirilen veri RNA-Seq formatındadır.
+#Buradaki veriler ham veriler olduğu için ilerleyen aşamalarda normalize edilecektir.
+query.exp <- GDCquery(project = "TCGA-BRCA", 
+legacy = TRUE,
+data.category = "Gene expression",
+data.type = "Gene expression quantification",
+platform = "Illumina HiSeq", 
+file.type = "results",
+experimental.strategy = "RNA-Seq",
+sample.type = c("Primary Tumor","Solid Tissue Normal"))
+GDCdownload(query.exp)
+gbm.exp <- GDCprepare(query = query.exp, save = TRUE, save.filename = "brcaExp.rda")
+
+# Alt tip bilgilerin indirilmesi ve kaydedilmesi
+dataSubt <- TCGAquery_subtype(tumor = "BRCA")
+
+# klinik verinin yüklenmesi
+dataClin <- GDCquery_clinic(project = "TCGA-GBM","clinical") 
+
+# Hangi verinin normal hangi verinin tümör datası olduğunun ayrıştırılması 
+dataSmTP <- TCGAquery_SampleTypes(getResults(query.exp,cols="cases"),"TP") 
+# which samples are solid tissue normal
+dataSmNT <- TCGAquery_SampleTypes(getResults(query.exp,cols="cases"),"NT")
+
+dataPrep <- TCGAanalyze_Preprocessing(object = brrca.exp, cor.cut = 0.6)                      
+#Normalizasyon işlemi 
+dataNorm <- TCGAanalyze_Normalization(tabDF = dataPrep,
+                                      geneInfo = geneInfo,
+                                      method = "gcContent")                
+
+dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
+                                  method = "quantile", 
+                                  qnt.cut =  0.25)
+
+#Bu veri setindeki temel sorunlardan bir tanesi gen ailelerinin isimlerle değil de Ensembl ID olarak inmesidir eğer çalışmanızı ID üzerinden devam etmek istiyorsanız aşağıdaki aşamayı atlayın
+#Aşağıda yeni bir satır yaparak gen isimlerini önce satır başına atadık sonra ise semboller ile ID'leri birleştirdik. Böylece gen isimleri ile de çalışma yapabilecek duruma gelinmiş oldu.
+
+##datasecimi, gen sembolleri
+sembol<- brca.exp@rowRanges$gene_id
+#gen sembollerinin satır baslarina atanması
+rownames(dataPrep)<- sembol
+head(dataPrep)
+
+```
+
+```{r}
+#verileri çalışabilmek için öncelikle dataframe formatına çevirdik
+# dataframe dönüşümü
+x <- as.data.frame(dataPrep)
+
+# gene_name sütunu oluşturma 
+x$gene_name <- rownames(dataPrep)
+
+# sütun sıralaması değiştirme 
+x <- x %>% dplyr::select(gene_name, everything())
+#istenilen genleri oluşturma burada ben kendi kodlarımdan sizin kullanabileceğiniz şekilde paylaşıyorum 
+xxx <- x[grepl("xxx", x$gene_name),]
+yyy<-x[grepl("yyy", x$gene_name),]
+st6g<- x[grepl("ST6GAL", x$gene_name),]
+st8s<- x[grepl("ST8SIA", x$gene_name),]
+#eğer bütün genleri aynı grupta toplamak isterseniz yukarıda belirtmiş olduğum fonksiyon ile ikisini birleştirebilirsiniz.
+# sütun isimlerini çekme 
+column_names <- c(dataSmNT, dataSmTP)
+
+# sütun isimlerini verme 
+x <- x %>% dplyr::select(column_names)
+
+# Normal tümör sütun isimlendirmesi burada datanızı açmanız ve yukarıda normal ve tümör datası indirmiştik onların sayısına bakarak sayıları değiştirmeniz gerekmektedir.
+names(x) <- c(paste("N",1:nereye kadar normal verileriniz geliyor , sep = "_"),
+              paste("T", tümör verileriniz nereden başlıyor:ncol(x), sep = "_"))
+
+# gene id leri çekme yukarıda ID eksikliğinden bahsedilmişti buradad yukarıda oluşturduğumuz satıra sembolleri çekerek eşleştirme yapıyoruz. 
+eg <- bitr(rownames(data1),
+           fromType="SYMBOL",
+           toType= c("ENTREZID","ENSEMBL"),
+           OrgDb="org.Hs.eg.db")
+names(eg)[1] <- "gene_name"
+x$gene_name <- rownames(x)
+x <- x %>% dplyr::select(gene_name, everything())
+
+# gen idleri ve datayı birleştirme burada da birleştirme yapıyoruz
+x <- merge(x, eg, by = "gene_name")
+x <- x %>% dplyr::select(ENSEMBL, ENTREZID, gene_name, everything())
+#verileri cvs formatı olarak kaydetmeniz için kod 
+write.csv(x, "breast_cancer.csv")
