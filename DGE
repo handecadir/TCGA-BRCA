@@ -1,0 +1,64 @@
+#Çalışmanın bu aşamasında meme kanserinde hangi genlerin yüksek ve az ifade olduğunu meme kanserinde gen olarak ne kadar genin yüksek ve az olduğunu görebileceğiz
+
+```{r}
+# Burada yukarıda da ayrıştırmıştık normal ve tümör örnek sayısı onları yazacağız mesela benim çalışmamda 113 normal 1095 tümör örneği vardı sayıları ona göre yazacağız
+class <- factor(c(rep("N", 113),
+                  rep("T", 1095)))
+
+# DGEList objesi oluşturma
+dge <- y <- DGEList(counts= x[,4:ncol(x)], 
+                    genes=x[,1:3], 
+                    group = class)
+
+# TMM normalizasyonu
+dge <- calcNormFactors(dge)
+
+# Dağılım hesabı
+dge <- estimateCommonDisp(dge, verbose=TRUE)
+dge <- estimateTagwiseDisp(dge)
+ 
+# Exact test
+test <- exactTest(dge)
+
+# Sonuçları dataframe formatında oluşturma
+result <-  topTags(n = Inf, test)
+result <- data.frame(result)
+names(result)[1] = "gene_id"
+
+# Up  down gene sayıları  
+summary(de.up.down <- decideTestsDGE(test, p = .05))
+# csv formatına kaydetme 
+write.csv(result, "de.csv")
+
+# yukarıda çıkan verileri data olarak kaydediyoruz
+data <- result
+
+# Grup
+data$Group <- "NS"
+
+# Down genleri filtresi
+data[which(data$FDR <= 0.01 & data$logFC < -1), "Group"] <- "DOWN"
+
+# Up genleri filtresi
+data[which(data$FDR <= 0.01 & data$logFC > 1 ), "Group"] <- "UP"
+
+# Grup seviyelerini ayarlama
+data$Group <- factor(data$Group, levels = c("UP", "NS","DOWN"))
+
+
+# Burada plot çizmeye başlıyoruz 
+ggplot(data, aes(x = logCPM, y = logFC)) +
+  geom_point(aes(color = Group), size = 1, show.legend = TRUE) +
+  scale_color_manual(values=c("#a50f15", "gray", "#1f78b4")) +
+  xlab("logCPM") + ylab("logFC") + theme_minimal()
+##geneekspreyonu genlerim boxplot 
+xxxd <- data[grepl("xxx", data$gene_name),]
+yyyd<-data[grepl("yyy", data$gene_name),]
+#eğer isterseniz yukarıda birleştirme işlemi yapabilirsiniz demiştim burada da aşağıdaki fonksiyonu kullanarak istediğiniz genleri tek bir yerde toplayabilirsiniz
+toplamgenler <- rbind(xxxd, yyyd)
+
+#plot çizimi 
+ggplot(toplamgenler, aes(x = gene_name, y = FDR)) +
+  geom_point(aes(color = Group), size = 7, show.legend = TRUE) +
+  scale_color_manual(values=c("#a50f15", "gray", "#1f78b4")) +
+  xlab("gene_name") + ylab("PValue") + theme_minimal()
