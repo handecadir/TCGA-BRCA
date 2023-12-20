@@ -41,7 +41,7 @@ gbm.exp <- GDCprepare(query = query.exp, save = TRUE, save.filename = "brcaExp.r
 dataSubt <- TCGAquery_subtype(tumor = "BRCA")
 
 # klinik verinin yüklenmesi
-dataClin <- GDCquery_clinic(project = "TCGA-GBM","clinical") 
+dataClin <- GDCquery_clinic(project = "TCGA-BRCA","clinical") 
 
 # Hangi verinin normal hangi verinin tümör datası olduğunun ayrıştırılması 
 dataSmTP <- TCGAquery_SampleTypes(getResults(query.exp,cols="cases"),"TP") 
@@ -96,7 +96,7 @@ names(x) <- c(paste("N",1:nereye kadar normal verileriniz geliyor , sep = "_"),
               paste("T", tümör verileriniz nereden başlıyor:ncol(x), sep = "_"))
 
 # gene id leri çekme yukarıda ID eksikliğinden bahsedilmişti buradad yukarıda oluşturduğumuz satıra sembolleri çekerek eşleştirme yapıyoruz. 
-eg <- bitr(rownames(data1),
+eg <- bitr(rownames(x),
            fromType="SYMBOL",
            toType= c("ENTREZID","ENSEMBL"),
            OrgDb="org.Hs.eg.db")
